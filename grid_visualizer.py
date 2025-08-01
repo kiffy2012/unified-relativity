@@ -28,7 +28,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 import numpy as np
 from space_object import SpaceObject
-from PyQt5.QtGui import QVector3D
 import math
 from PyQt5.QtCore import pyqtSignal
 
@@ -420,97 +419,6 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.visualizer.update)
         self.timer.start(16)  # Update roughly 60 times per second
-
-    def initUI(self):
-        self.setWindowTitle('Unified Theory Simulation')
-        self.setGeometry(100, 100, 1400, 800)
-
-        # Create menu bar
-        menubar = self.menuBar()
-        
-        # File menu
-        file_menu = menubar.addMenu('File')
-        file_menu.addAction('New Simulation')
-        file_menu.addAction('Open Simulation')
-        file_menu.addAction('Save Simulation')
-        file_menu.addAction('Export Results')
-        file_menu.addSeparator()
-        file_menu.addAction('Exit')
-
-        # Edit menu
-        edit_menu = menubar.addMenu('Edit')
-        edit_menu.addAction('Undo')
-        edit_menu.addAction('Redo')
-        edit_menu.addSeparator()
-        edit_menu.addAction('Preferences')
-
-        # View menu
-        view_menu = menubar.addMenu('View')
-        view_menu.addAction('Reset View')
-        view_menu.addAction('Toggle 3D/4D View')
-        view_menu.addAction('Show/Hide Grid')
-
-        # Simulation menu
-        sim_menu = menubar.addMenu('Simulation')
-        sim_menu.addAction('Start')
-        sim_menu.addAction('Pause')
-        sim_menu.addAction('Stop')
-        sim_menu.addAction('Step Forward')
-        sim_menu.addSeparator()
-        sim_menu.addAction('Configure Parameters')
-
-        # Analysis menu
-        analysis_menu = menubar.addMenu('Analysis')
-        analysis_menu.addAction('Generate Report')
-        analysis_menu.addAction('Plot Results')
-        analysis_menu.addAction('Export Data')
-
-        # Help menu
-        help_menu = menubar.addMenu('Help')
-        help_menu.addAction('Documentation')
-        help_menu.addAction('About')
-
-        # Central widget
-        central_widget = QWidget()
-        main_layout = QHBoxLayout()
-
-        # Left panel (visualization)
-        self.visualizer = GridVisualizer(self.space_time_grid)
-        main_layout.addWidget(self.visualizer, 3)
-
-        # Right panel (controls and object adding)
-        right_panel = QWidget()
-        right_layout = QVBoxLayout()
-
-        # Scale selection
-        scale_layout = QHBoxLayout()
-        scale_label = QLabel("Scale:")
-        self.scale_combo = QComboBox()
-        self.scale_combo.addItems(["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"])
-        self.scale_combo.currentTextChanged.connect(self.on_scale_changed)
-        scale_layout.addWidget(scale_label)
-        scale_layout.addWidget(self.scale_combo)
-        right_layout.addLayout(scale_layout)
-
-        # Settings panel
-        self.settings_panel = SettingsPanel(self.visualizer)
-        right_layout.addWidget(self.settings_panel)
-
-        # Object adding
-        self.object_stack = QStackedWidget()
-        self.setup_object_lists()
-        right_layout.addWidget(QLabel("Add Objects:"))
-        right_layout.addWidget(self.object_stack)
-
-        add_object_button = QPushButton("Add Selected Object")
-        add_object_button.clicked.connect(self.add_selected_object)
-        right_layout.addWidget(add_object_button)
-
-        right_panel.setLayout(right_layout)
-        main_layout.addWidget(right_panel, 1)
-
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
 
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
