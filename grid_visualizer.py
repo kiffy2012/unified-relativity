@@ -249,14 +249,10 @@ class GridVisualizer(QOpenGLWidget):
         glPopMatrix()
 
     def add_object(self, position, radius, color, mass):
-        print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
         try:
             new_object = SpaceObject(position, radius, color, mass)
-            print("SpaceObject created successfully")
             self.objects.append(new_object)
-            print(f"Object appended to self.objects. Total objects: {len(self.objects)}")
             self.update()
-            print("GridVisualizer: update() called")
         except Exception as e:
             print(f"Error in add_object: {str(e)}")
             import traceback
@@ -278,13 +274,6 @@ class GridVisualizer(QOpenGLWidget):
                 return i
         return None
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            selected_index = self.select_object(event.x(), event.y())
-            if selected_index is not None:
-                self.object_selected.emit(selected_index)
-            self.lastPos = event.pos()
-        super().mousePressEvent(event)
     def remove_object(self, index):
         if 0 <= index < len(self.objects):
             del self.objects[index]
@@ -444,24 +433,16 @@ class MainWindow(QMainWindow):
         self.object_stack.setCurrentIndex(self.scale_combo.currentIndex())
 
     def add_selected_object(self):
-        print("Starting add_selected_object method")
         try:
             current_list = self.object_stack.currentWidget()
             if current_list.currentItem():
                 selected_object = current_list.currentItem().text()
                 scale = self.scale_combo.currentText()
-                print(f"Selected object: {selected_object}, Scale: {scale}")
-                
                 position = QVector3D(0.5, 0.5, 0.5)  # Center of the grid
                 radius = self.get_object_radius(scale)
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
-                print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
-
-                print("Calling visualizer.add_object")
                 self.visualizer.add_object(position, radius, color, mass)
-                print(f"Added {selected_object} at {scale} scale")
-            print("Finished add_selected_object method")
         except Exception as e:
             print(f"Error in add_selected_object: {str(e)}")
             import traceback

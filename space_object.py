@@ -1,5 +1,4 @@
 # space_object.py
-# space_object.py
 import numpy as np
 from PyQt5.QtGui import QVector3D
 
