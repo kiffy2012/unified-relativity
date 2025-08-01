@@ -1,5 +1,6 @@
 import sys
 
+
 from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
                              QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
                              QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
@@ -38,6 +39,19 @@ class GridVisualizer(QOpenGLWidget):
             "weak": "0",
         }
 
+        self.show_forces = {
+            "gravity": True,
+            "electromagnetic": False,
+            "strong": False,
+            "weak": False,
+        }
+        self.force_colors = {
+            "gravity": (1.0, 1.0, 1.0),
+            "electromagnetic": (0.0, 0.0, 1.0),
+            "strong": (1.0, 0.0, 0.0),
+            "weak": (0.0, 1.0, 0.0),
+        }
+
 
     def initializeGL(self):
         glClearColor(0, 0, 0, 1)
@@ -46,7 +60,8 @@ class GridVisualizer(QOpenGLWidget):
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         error = glGetError()
         if error != GL_NO_ERROR:
-            print(f"OpenGL error in initializeGL: {error}")
+            # Log the error instead of printing to stdout
+            sys.stderr.write(f"OpenGL error in initializeGL: {error}\n")
 
     def resizeGL(self, w, h):
         glViewport(0, 0, w, h)
@@ -65,6 +80,11 @@ class GridVisualizer(QOpenGLWidget):
         glTranslatef(self.offset.x(), self.offset.y(), self.offset.z())
 
         if self.grid_density >= 2:
+
+            for name, visible in self.show_forces.items():
+                if visible:
+                    self._draw_grid_for_force(name)
+
 
             glBegin(GL_LINES)
             step = 1.0 / (self.grid_density - 1)
@@ -117,7 +137,7 @@ class GridVisualizer(QOpenGLWidget):
 
             glEnd()
 
-        # Draw objects
+
 
         for obj in self.objects:
             self.draw_sphere(obj.position, obj.radius, obj.color)
@@ -142,7 +162,12 @@ class GridVisualizer(QOpenGLWidget):
         self.lastPos = event.pos()
 
     def wheelEvent(self, event):
+
+        # Use the original zoom step for a snappier feel
+        self.zoom += event.angleDelta().y() / 120
+
         self.zoom += event.angleDelta().y() / 60.0
+
         self.update()
 
     def set_grid_opacity(self, opacity):
@@ -178,6 +203,17 @@ class GridVisualizer(QOpenGLWidget):
             return 0
 
 
+    def _apply_force(self, position, force_name):
+        displacement = QVector3D(0, 0, 0)
+        formula = self.force_formulas.get(force_name, "0")
+        for obj in self.objects:
+            r_vec = QVector3D(
+                position.x() - obj.position.x(),
+                position.y() - obj.position.y(),
+                position.z() - obj.position.z(),
+            )
+
+
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
         for obj in self.objects:
@@ -185,10 +221,64 @@ class GridVisualizer(QOpenGLWidget):
                               position.y() - obj.position.y(),
                               position.z() - obj.position.z())
 
+
             r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
             if r == 0:
                 continue
             r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+
+            value = self._evaluate_formula(formula, r, obj.mass)
+            if value != 0:
+                # Prevent extreme displacements that collapse the grid
+                scaled = (value / (1 + abs(value))) * 0.2
+                displacement -= r_unit * scaled
+        return QVector3D(
+            position.x() + displacement.x(),
+            position.y() + displacement.y(),
+            position.z() + displacement.z(),
+        )
+
+    def _draw_grid_for_force(self, force_name):
+        glColor4f(*self.force_colors[force_name], self.grid_opacity)
+        step = 1.0 / (self.grid_density - 1)
+        glBegin(GL_LINES)
+        if self.dimension == 1:
+            p1 = self._apply_force(QVector3D(0, 0.5, 0.5), force_name)
+            p2 = self._apply_force(QVector3D(1, 0.5, 0.5), force_name)
+            glVertex3f(p1.x(), p1.y(), p1.z())
+            glVertex3f(p2.x(), p2.y(), p2.z())
+            for i in range(self.grid_density):
+                p1 = self._apply_force(QVector3D(i * step, 0.49, 0.5), force_name)
+                p2 = self._apply_force(QVector3D(i * step, 0.51, 0.5), force_name)
+                glVertex3f(p1.x(), p1.y(), p1.z())
+                glVertex3f(p2.x(), p2.y(), p2.z())
+        elif self.dimension == 2:
+            for i in range(self.grid_density):
+                p1 = self._apply_force(QVector3D(i * step, 0, 0.5), force_name)
+                p2 = self._apply_force(QVector3D(i * step, 1, 0.5), force_name)
+                glVertex3f(p1.x(), p1.y(), p1.z())
+                glVertex3f(p2.x(), p2.y(), p2.z())
+                p3 = self._apply_force(QVector3D(0, i * step, 0.5), force_name)
+                p4 = self._apply_force(QVector3D(1, i * step, 0.5), force_name)
+                glVertex3f(p3.x(), p3.y(), p3.z())
+                glVertex3f(p4.x(), p4.y(), p4.z())
+        else:
+            for i in range(self.grid_density):
+                for j in range(self.grid_density):
+                    p1 = self._apply_force(QVector3D(0, i * step, j * step), force_name)
+                    p2 = self._apply_force(QVector3D(1, i * step, j * step), force_name)
+                    glVertex3f(p1.x(), p1.y(), p1.z())
+                    glVertex3f(p2.x(), p2.y(), p2.z())
+                    p3 = self._apply_force(QVector3D(i * step, 0, j * step), force_name)
+                    p4 = self._apply_force(QVector3D(i * step, 1, j * step), force_name)
+                    glVertex3f(p3.x(), p3.y(), p3.z())
+                    glVertex3f(p4.x(), p4.y(), p4.z())
+                    p5 = self._apply_force(QVector3D(i * step, j * step, 0), force_name)
+                    p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
+                    glVertex3f(p5.x(), p5.y(), p5.z())
+                    glVertex3f(p6.x(), p6.y(), p6.z())
+        glEnd()
+
 
 
             for formula in self.force_formulas.values():
@@ -198,6 +288,7 @@ class GridVisualizer(QOpenGLWidget):
         return QVector3D(position.x() + displacement.x(),
                          position.y() + displacement.y(),
                          position.z() + displacement.z())
+
 
 
     def draw_sphere(self, position, radius, color):
@@ -233,15 +324,19 @@ class GridVisualizer(QOpenGLWidget):
 
     def add_object(self, position, radius, color, mass):
 
+        try:
+            new_object = SpaceObject(position, radius, color, mass)
+
+
         print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
         try:
             new_object = SpaceObject(position, radius, color, mass)
             print("SpaceObject created successfully")
 
+
             self.objects.append(new_object)
             self.update()
         except Exception as e:
-            print(f"Error in add_object: {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -430,6 +525,9 @@ class MainWindow(QMainWindow):
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
 
+                self.visualizer.add_object(position, radius, color, mass)
+
+
                 print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
 
                 print("Calling visualizer.add_object")
@@ -437,8 +535,8 @@ class MainWindow(QMainWindow):
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
 
+
         except Exception as e:
-            print(f"Error in add_selected_object: {str(e)}")
             import traceback
             traceback.print_exc()
 
