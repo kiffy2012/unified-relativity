@@ -73,7 +73,8 @@ class GridVisualizer(QOpenGLWidget):
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         error = glGetError()
         if error != GL_NO_ERROR:
-            print(f"OpenGL error in initializeGL: {error}")
+            # Log the error instead of printing to stdout
+            sys.stderr.write(f"OpenGL error in initializeGL: {error}\n")
 
     def resizeGL(self, w, h):
         glViewport(0, 0, w, h)
@@ -257,7 +258,6 @@ class GridVisualizer(QOpenGLWidget):
             self.objects.append(new_object)
             self.update()
         except Exception as e:
-            print(f"Error in add_object: {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -447,7 +447,6 @@ class MainWindow(QMainWindow):
                 mass = self.get_object_mass(scale)
                 self.visualizer.add_object(position, radius, color, mass)
         except Exception as e:
-            print(f"Error in add_selected_object: {str(e)}")
             import traceback
             traceback.print_exc()
 
