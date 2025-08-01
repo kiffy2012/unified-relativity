@@ -1,8 +1,8 @@
 import sys
-from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget, 
-                             QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox, 
-                             QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu, 
-                             QAction, QStackedWidget)
+from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
+                             QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
+                             QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
+                             QAction, QStackedWidget, QLineEdit)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
 from OpenGL.GL import *
@@ -27,6 +27,14 @@ class GridVisualizer(QOpenGLWidget):
         self.offset = QVector3D(-0.5, -0.5, -0.5)
         self.dimension = 3
         self.objects = []
+        # Default formulas for the four fundamental forces. "r" represents the
+        # distance from an object.
+        self.force_formulas = {
+            "gravity": "1/(r*r)",
+            "electromagnetic": "0",
+            "strong": "0",
+            "weak": "0",
+        }
 
     def initializeGL(self):
         glClearColor(0, 0, 0, 1)
@@ -111,33 +119,47 @@ class GridVisualizer(QOpenGLWidget):
         mid_point = self.grid_density // 2
 
         if self.dimension == 1:  # 1D: single line
-            glVertex3f(0, 0.5, 0.5)
-            glVertex3f(1, 0.5, 0.5)
+            p1 = self._apply_displacement(QVector3D(0, 0.5, 0.5))
+            p2 = self._apply_displacement(QVector3D(1, 0.5, 0.5))
+            glVertex3f(p1.x(), p1.y(), p1.z())
+            glVertex3f(p2.x(), p2.y(), p2.z())
             for i in range(self.grid_density):
-                glVertex3f(i * step, 0.49, 0.5)
-                glVertex3f(i * step, 0.51, 0.5)
+                p1 = self._apply_displacement(QVector3D(i * step, 0.49, 0.5))
+                p2 = self._apply_displacement(QVector3D(i * step, 0.51, 0.5))
+                glVertex3f(p1.x(), p1.y(), p1.z())
+                glVertex3f(p2.x(), p2.y(), p2.z())
 
         elif self.dimension == 2:  # 2D: grid on XY plane
             for i in range(self.grid_density):
                 # Vertical lines
-                glVertex3f(i * step, 0, 0.5)
-                glVertex3f(i * step, 1, 0.5)
+                p1 = self._apply_displacement(QVector3D(i * step, 0, 0.5))
+                p2 = self._apply_displacement(QVector3D(i * step, 1, 0.5))
+                glVertex3f(p1.x(), p1.y(), p1.z())
+                glVertex3f(p2.x(), p2.y(), p2.z())
                 # Horizontal lines
-                glVertex3f(0, i * step, 0.5)
-                glVertex3f(1, i * step, 0.5)
+                p3 = self._apply_displacement(QVector3D(0, i * step, 0.5))
+                p4 = self._apply_displacement(QVector3D(1, i * step, 0.5))
+                glVertex3f(p3.x(), p3.y(), p3.z())
+                glVertex3f(p4.x(), p4.y(), p4.z())
 
         else:  # 3D: cube
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
                     # X-axis aligned lines
-                    glVertex3f(0, i * step, j * step)
-                    glVertex3f(1, i * step, j * step)
+                    p1 = self._apply_displacement(QVector3D(0, i * step, j * step))
+                    p2 = self._apply_displacement(QVector3D(1, i * step, j * step))
+                    glVertex3f(p1.x(), p1.y(), p1.z())
+                    glVertex3f(p2.x(), p2.y(), p2.z())
                     # Y-axis aligned lines
-                    glVertex3f(i * step, 0, j * step)
-                    glVertex3f(i * step, 1, j * step)
+                    p3 = self._apply_displacement(QVector3D(i * step, 0, j * step))
+                    p4 = self._apply_displacement(QVector3D(i * step, 1, j * step))
+                    glVertex3f(p3.x(), p3.y(), p3.z())
+                    glVertex3f(p4.x(), p4.y(), p4.z())
                     # Z-axis aligned lines
-                    glVertex3f(i * step, j * step, 0)
-                    glVertex3f(i * step, j * step, 1)
+                    p5 = self._apply_displacement(QVector3D(i * step, j * step, 0))
+                    p6 = self._apply_displacement(QVector3D(i * step, j * step, 1))
+                    glVertex3f(p5.x(), p5.y(), p5.z())
+                    glVertex3f(p6.x(), p6.y(), p6.z())
 
         glEnd()
 
@@ -188,6 +210,35 @@ class GridVisualizer(QOpenGLWidget):
             self.rotation = QVector3D(30, 30, 0)
             self.offset = QVector3D(-0.5, -0.5, -0.5)
         self.update()
+
+    def update_force_formulas(self, formulas):
+        """Update force formulas from the settings panel."""
+        self.force_formulas.update(formulas)
+        self.update()
+
+    def _evaluate_formula(self, formula, r):
+        try:
+            return eval(formula, {"r": r, "math": math, "np": np})
+        except Exception:
+            return 0
+
+    def _apply_displacement(self, position):
+        displacement = QVector3D(0, 0, 0)
+        for obj in self.objects:
+            r_vec = QVector3D(position.x() - obj.position.x(),
+                              position.y() - obj.position.y(),
+                              position.z() - obj.position.z())
+            r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
+            if r == 0:
+                continue
+            r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+            for formula in self.force_formulas.values():
+                value = self._evaluate_formula(formula, r)
+                if value != 0:
+                    displacement -= r_unit * value
+        return QVector3D(position.x() + displacement.x(),
+                         position.y() + displacement.y(),
+                         position.z() + displacement.z())
 
     def draw_sphere(self, position, radius, color):
         glPushMatrix()
@@ -315,6 +366,29 @@ class SettingsPanel(QWidget):
         opacity_group.setLayout(opacity_layout)
         layout.addWidget(opacity_group)
 
+        # Force formulas control
+        force_group = QGroupBox("Force Formulas")
+        force_layout = QVBoxLayout()
+        self.force_inputs = {}
+        defaults = [
+            ("Gravity", "1/(r*r)"),
+            ("Electromagnetic", "0"),
+            ("Strong", "0"),
+            ("Weak", "0"),
+        ]
+        for name, default in defaults:
+            hlayout = QHBoxLayout()
+            hlayout.addWidget(QLabel(f"{name}:"))
+            line = QLineEdit(default)
+            hlayout.addWidget(line)
+            force_layout.addLayout(hlayout)
+            self.force_inputs[name.lower()] = line
+        apply_btn = QPushButton("Apply")
+        apply_btn.clicked.connect(self.apply_force_formulas)
+        force_layout.addWidget(apply_btn)
+        force_group.setLayout(force_layout)
+        layout.addWidget(force_group)
+
         self.setLayout(layout)
 
     def set_dimension(self, dim):
@@ -331,6 +405,10 @@ class SettingsPanel(QWidget):
     def update_grid_opacity(self, value):
         opacity = value / 100.0
         self.visualizer.set_grid_opacity(opacity)
+
+    def apply_force_formulas(self):
+        formulas = {name: edit.text() for name, edit in self.force_inputs.items()}
+        self.visualizer.update_force_formulas(formulas)
 
 class MainWindow(QMainWindow):
     def __init__(self, space_time_grid):
