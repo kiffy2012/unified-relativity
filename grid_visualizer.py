@@ -1,11 +1,29 @@
 import sys
 
 
-from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
-                             QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
-                             QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
-                             QAction, QStackedWidget, QLineEdit, QDialog,
-                             QFormLayout, QDoubleSpinBox)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QOpenGLWidget,
+    QMainWindow,
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QSlider,
+    QComboBox,
+    QPushButton,
+    QGroupBox,
+    QListWidget,
+    QMenuBar,
+    QMenu,
+    QAction,
+    QStackedWidget,
+    QLineEdit,
+    QDialog,
+    QFormLayout,
+    QDoubleSpinBox,
+    QCheckBox,
+)
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
@@ -529,12 +547,10 @@ class MainWindow(QMainWindow):
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
 
-                self.visualizer.add_object(position, radius, color, mass)
-
-
-                print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
-
-                print("Calling visualizer.add_object")
+                print(
+                    f"Object properties: position={position}, radius={radius}, "
+                    f"color={color}, mass={mass}"
+                )
                 self.visualizer.add_object(position, radius, color, mass)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
