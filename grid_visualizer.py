@@ -1,11 +1,29 @@
 import sys
 
 
-from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
-                             QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
-                             QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
-                             QAction, QStackedWidget, QLineEdit, QDialog,
-                             QFormLayout, QDoubleSpinBox)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QOpenGLWidget,
+    QMainWindow,
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QSlider,
+    QComboBox,
+    QPushButton,
+    QGroupBox,
+    QListWidget,
+    QMenuBar,
+    QMenu,
+    QAction,
+    QStackedWidget,
+    QLineEdit,
+    QDialog,
+    QFormLayout,
+    QDoubleSpinBox,
+    QCheckBox,
+)
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
@@ -213,15 +231,6 @@ class GridVisualizer(QOpenGLWidget):
                 position.z() - obj.position.z(),
             )
 
-
-    def _apply_displacement(self, position):
-        displacement = QVector3D(0, 0, 0)
-        for obj in self.objects:
-            r_vec = QVector3D(position.x() - obj.position.x(),
-                              position.y() - obj.position.y(),
-                              position.z() - obj.position.z())
-
-
             r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
             if r == 0:
                 continue
@@ -232,6 +241,32 @@ class GridVisualizer(QOpenGLWidget):
                 # Prevent extreme displacements that collapse the grid
                 scaled = (value / (1 + abs(value))) * 0.2
                 displacement -= r_unit * scaled
+        return QVector3D(
+            position.x() + displacement.x(),
+            position.y() + displacement.y(),
+            position.z() + displacement.z(),
+        )
+
+    def _apply_displacement(self, position):
+        displacement = QVector3D(0, 0, 0)
+        for obj in self.objects:
+            r_vec = QVector3D(
+                position.x() - obj.position.x(),
+                position.y() - obj.position.y(),
+                position.z() - obj.position.z(),
+            )
+
+            r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
+            if r == 0:
+                continue
+            r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+
+            for formula in self.force_formulas.values():
+                value = self._evaluate_formula(formula, r, obj.mass)
+                if value != 0:
+                    # Prevent extreme displacements that collapse the grid
+                    scaled = (value / (1 + abs(value))) * 0.2
+                    displacement -= r_unit * scaled
         return QVector3D(
             position.x() + displacement.x(),
             position.y() + displacement.y(),
@@ -277,17 +312,8 @@ class GridVisualizer(QOpenGLWidget):
                     p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
+
         glEnd()
-
-
-
-            for formula in self.force_formulas.values():
-                value = self._evaluate_formula(formula, r, obj.mass)
-                if value != 0:
-                    displacement -= r_unit * value
-        return QVector3D(position.x() + displacement.x(),
-                         position.y() + displacement.y(),
-                         position.z() + displacement.z())
 
 
 
@@ -323,17 +349,13 @@ class GridVisualizer(QOpenGLWidget):
         glPopMatrix()
 
     def add_object(self, position, radius, color, mass):
-
-        try:
-            new_object = SpaceObject(position, radius, color, mass)
-
-
-        print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
+        print(
+            f"GridVisualizer: Adding object with position={position}, radius={radius}, "
+            f"color={color}, mass={mass}"
+        )
         try:
             new_object = SpaceObject(position, radius, color, mass)
             print("SpaceObject created successfully")
-
-
             self.objects.append(new_object)
             self.update()
         except Exception as e:
@@ -525,12 +547,10 @@ class MainWindow(QMainWindow):
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
 
-                self.visualizer.add_object(position, radius, color, mass)
-
-
-                print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
-
-                print("Calling visualizer.add_object")
+                print(
+                    f"Object properties: position={position}, radius={radius}, "
+                    f"color={color}, mass={mass}"
+                )
                 self.visualizer.add_object(position, radius, color, mass)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
