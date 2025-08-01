@@ -2,7 +2,8 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
                              QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
                              QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
-                             QAction, QStackedWidget, QLineEdit)
+                             QAction, QStackedWidget, QLineEdit, QDialog,
+                             QFormLayout, QDoubleSpinBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
 from OpenGL.GL import *
@@ -30,7 +31,7 @@ class GridVisualizer(QOpenGLWidget):
         # Default formulas for the four fundamental forces. "r" represents the
         # distance from an object.
         self.force_formulas = {
-            "gravity": "1/(r*r)",
+            "gravity": "m/(r*r)",
             "electromagnetic": "0",
             "strong": "0",
             "weak": "0",
@@ -112,56 +113,57 @@ class GridVisualizer(QOpenGLWidget):
         glRotatef(self.rotation.y(), 0, 1, 0)
         glTranslatef(self.offset.x(), self.offset.y(), self.offset.z())
 
-        glBegin(GL_LINES)
-        step = 1.0 / (self.grid_density - 1)
-        glColor4f(1, 1, 1, self.grid_opacity)
+        if self.grid_density >= 2:
+            glBegin(GL_LINES)
+            step = 1.0 / (self.grid_density - 1)
+            glColor4f(1, 1, 1, self.grid_opacity)
 
-        mid_point = self.grid_density // 2
+            mid_point = self.grid_density // 2
 
-        if self.dimension == 1:  # 1D: single line
-            p1 = self._apply_displacement(QVector3D(0, 0.5, 0.5))
-            p2 = self._apply_displacement(QVector3D(1, 0.5, 0.5))
-            glVertex3f(p1.x(), p1.y(), p1.z())
-            glVertex3f(p2.x(), p2.y(), p2.z())
-            for i in range(self.grid_density):
-                p1 = self._apply_displacement(QVector3D(i * step, 0.49, 0.5))
-                p2 = self._apply_displacement(QVector3D(i * step, 0.51, 0.5))
+            if self.dimension == 1:  # 1D: single line
+                p1 = self._apply_displacement(QVector3D(0, 0.5, 0.5))
+                p2 = self._apply_displacement(QVector3D(1, 0.5, 0.5))
                 glVertex3f(p1.x(), p1.y(), p1.z())
                 glVertex3f(p2.x(), p2.y(), p2.z())
-
-        elif self.dimension == 2:  # 2D: grid on XY plane
-            for i in range(self.grid_density):
-                # Vertical lines
-                p1 = self._apply_displacement(QVector3D(i * step, 0, 0.5))
-                p2 = self._apply_displacement(QVector3D(i * step, 1, 0.5))
-                glVertex3f(p1.x(), p1.y(), p1.z())
-                glVertex3f(p2.x(), p2.y(), p2.z())
-                # Horizontal lines
-                p3 = self._apply_displacement(QVector3D(0, i * step, 0.5))
-                p4 = self._apply_displacement(QVector3D(1, i * step, 0.5))
-                glVertex3f(p3.x(), p3.y(), p3.z())
-                glVertex3f(p4.x(), p4.y(), p4.z())
-
-        else:  # 3D: cube
-            for i in range(self.grid_density):
-                for j in range(self.grid_density):
-                    # X-axis aligned lines
-                    p1 = self._apply_displacement(QVector3D(0, i * step, j * step))
-                    p2 = self._apply_displacement(QVector3D(1, i * step, j * step))
+                for i in range(self.grid_density):
+                    p1 = self._apply_displacement(QVector3D(i * step, 0.49, 0.5))
+                    p2 = self._apply_displacement(QVector3D(i * step, 0.51, 0.5))
                     glVertex3f(p1.x(), p1.y(), p1.z())
                     glVertex3f(p2.x(), p2.y(), p2.z())
-                    # Y-axis aligned lines
-                    p3 = self._apply_displacement(QVector3D(i * step, 0, j * step))
-                    p4 = self._apply_displacement(QVector3D(i * step, 1, j * step))
+
+            elif self.dimension == 2:  # 2D: grid on XY plane
+                for i in range(self.grid_density):
+                    # Vertical lines
+                    p1 = self._apply_displacement(QVector3D(i * step, 0, 0.5))
+                    p2 = self._apply_displacement(QVector3D(i * step, 1, 0.5))
+                    glVertex3f(p1.x(), p1.y(), p1.z())
+                    glVertex3f(p2.x(), p2.y(), p2.z())
+                    # Horizontal lines
+                    p3 = self._apply_displacement(QVector3D(0, i * step, 0.5))
+                    p4 = self._apply_displacement(QVector3D(1, i * step, 0.5))
                     glVertex3f(p3.x(), p3.y(), p3.z())
                     glVertex3f(p4.x(), p4.y(), p4.z())
-                    # Z-axis aligned lines
-                    p5 = self._apply_displacement(QVector3D(i * step, j * step, 0))
-                    p6 = self._apply_displacement(QVector3D(i * step, j * step, 1))
-                    glVertex3f(p5.x(), p5.y(), p5.z())
-                    glVertex3f(p6.x(), p6.y(), p6.z())
 
-        glEnd()
+            else:  # 3D: cube
+                for i in range(self.grid_density):
+                    for j in range(self.grid_density):
+                        # X-axis aligned lines
+                        p1 = self._apply_displacement(QVector3D(0, i * step, j * step))
+                        p2 = self._apply_displacement(QVector3D(1, i * step, j * step))
+                        glVertex3f(p1.x(), p1.y(), p1.z())
+                        glVertex3f(p2.x(), p2.y(), p2.z())
+                        # Y-axis aligned lines
+                        p3 = self._apply_displacement(QVector3D(i * step, 0, j * step))
+                        p4 = self._apply_displacement(QVector3D(i * step, 1, j * step))
+                        glVertex3f(p3.x(), p3.y(), p3.z())
+                        glVertex3f(p4.x(), p4.y(), p4.z())
+                        # Z-axis aligned lines
+                        p5 = self._apply_displacement(QVector3D(i * step, j * step, 0))
+                        p6 = self._apply_displacement(QVector3D(i * step, j * step, 1))
+                        glVertex3f(p5.x(), p5.y(), p5.z())
+                        glVertex3f(p6.x(), p6.y(), p6.z())
+
+            glEnd()
 
         # Draw objects
         for obj in self.objects:
@@ -195,7 +197,7 @@ class GridVisualizer(QOpenGLWidget):
         self.update()
 
     def set_grid_density(self, density):
-        self.grid_density = max(2, min(50, density))  # Clamp between 2 and 50
+        self.grid_density = max(0, min(50, density))  # Allow 0 to hide grid
         self.update()
 
     def set_dimension(self, dim):
@@ -216,9 +218,9 @@ class GridVisualizer(QOpenGLWidget):
         self.force_formulas.update(formulas)
         self.update()
 
-    def _evaluate_formula(self, formula, r):
+    def _evaluate_formula(self, formula, r, m):
         try:
-            return eval(formula, {"r": r, "math": math, "np": np})
+            return eval(formula, {"r": r, "m": m, "math": math, "np": np})
         except Exception:
             return 0
 
@@ -233,7 +235,7 @@ class GridVisualizer(QOpenGLWidget):
                 continue
             r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
             for formula in self.force_formulas.values():
-                value = self._evaluate_formula(formula, r)
+                value = self._evaluate_formula(formula, r, obj.mass)
                 if value != 0:
                     displacement -= r_unit * value
         return QVector3D(position.x() + displacement.x(),
@@ -271,10 +273,10 @@ class GridVisualizer(QOpenGLWidget):
         
         glPopMatrix()
 
-    def add_object(self, position, radius, color):
-        print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}")
+    def add_object(self, position, radius, color, mass):
+        print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
         try:
-            new_object = SpaceObject(position, radius, color)
+            new_object = SpaceObject(position, radius, color, mass)
             print("SpaceObject created successfully")
             self.objects.append(new_object)
             print(f"Object appended to self.objects. Total objects: {len(self.objects)}")
@@ -314,10 +316,42 @@ class GridVisualizer(QOpenGLWidget):
             self.update()
 
 
-def remove_object(self, index):
-    if 0 <= index < len(self.objects):
-        del self.objects[index]
-        self.update()
+class ForceFormulasDialog(QDialog):
+    def __init__(self, formulas, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Force Formulas")
+        self.inputs = {}
+        layout = QVBoxLayout()
+        for name in ["gravity", "electromagnetic", "strong", "weak"]:
+            hlayout = QHBoxLayout()
+            hlayout.addWidget(QLabel(f"{name.capitalize()}:"))
+            line = QLineEdit(formulas.get(name, ""))
+            hlayout.addWidget(line)
+            self.inputs[name] = line
+            layout.addLayout(hlayout)
+        apply_btn = QPushButton("Apply")
+        apply_btn.clicked.connect(self.accept)
+        layout.addWidget(apply_btn)
+        self.setLayout(layout)
+
+
+class ObjectSettingsDialog(QDialog):
+    def __init__(self, obj, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Object Settings")
+        form = QFormLayout()
+        self.mass_spin = QDoubleSpinBox()
+        self.mass_spin.setRange(0, 1e20)
+        self.mass_spin.setValue(obj.mass)
+        form.addRow("Mass", self.mass_spin)
+        self.radius_spin = QDoubleSpinBox()
+        self.radius_spin.setRange(0.001, 1.0)
+        self.radius_spin.setValue(obj.radius)
+        form.addRow("Radius", self.radius_spin)
+        apply = QPushButton("Apply")
+        apply.clicked.connect(self.accept)
+        form.addRow(apply)
+        self.setLayout(form)
 
 class SettingsPanel(QWidget):
     def __init__(self, visualizer):
@@ -366,29 +400,6 @@ class SettingsPanel(QWidget):
         opacity_group.setLayout(opacity_layout)
         layout.addWidget(opacity_group)
 
-        # Force formulas control
-        force_group = QGroupBox("Force Formulas")
-        force_layout = QVBoxLayout()
-        self.force_inputs = {}
-        defaults = [
-            ("Gravity", "1/(r*r)"),
-            ("Electromagnetic", "0"),
-            ("Strong", "0"),
-            ("Weak", "0"),
-        ]
-        for name, default in defaults:
-            hlayout = QHBoxLayout()
-            hlayout.addWidget(QLabel(f"{name}:"))
-            line = QLineEdit(default)
-            hlayout.addWidget(line)
-            force_layout.addLayout(hlayout)
-            self.force_inputs[name.lower()] = line
-        apply_btn = QPushButton("Apply")
-        apply_btn.clicked.connect(self.apply_force_formulas)
-        force_layout.addWidget(apply_btn)
-        force_group.setLayout(force_layout)
-        layout.addWidget(force_group)
-
         self.setLayout(layout)
 
     def set_dimension(self, dim):
@@ -405,10 +416,6 @@ class SettingsPanel(QWidget):
     def update_grid_opacity(self, value):
         opacity = value / 100.0
         self.visualizer.set_grid_opacity(opacity)
-
-    def apply_force_formulas(self):
-        formulas = {name: edit.text() for name, edit in self.force_inputs.items()}
-        self.visualizer.update_force_formulas(formulas)
 
 class MainWindow(QMainWindow):
     def __init__(self, space_time_grid):
@@ -547,10 +554,11 @@ class MainWindow(QMainWindow):
                 position = QVector3D(0.5, 0.5, 0.5)  # Center of the grid
                 radius = self.get_object_radius(scale)
                 color = self.get_object_color(selected_object)
-                print(f"Object properties: position={position}, radius={radius}, color={color}")
-                
+                mass = self.get_object_mass(scale)
+                print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
+
                 print("Calling visualizer.add_object")
-                self.visualizer.add_object(position, radius, color)
+                self.visualizer.add_object(position, radius, color, mass)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
         except Exception as e:
@@ -570,6 +578,18 @@ class MainWindow(QMainWindow):
             "Cosmological": 0.07
     }
         return scale_radii.get(scale, 0.05)
+
+    def get_object_mass(self, scale):
+        scale_masses = {
+            "Quantum": 1e-6,
+            "Subatomic": 1e-4,
+            "Atomic": 1e-3,
+            "Molecular": 1e-2,
+            "Macroscopic": 1.0,
+            "Astronomical": 1e10,
+            "Cosmological": 1e20,
+        }
+        return scale_masses.get(scale, 1.0)
 
     def get_object_color(self, object_type):
         # Define colors for different object types (you can adjust these values)
@@ -592,8 +612,10 @@ class MainWindow(QMainWindow):
 
         # Create menu bar
         menubar = self.menuBar()
-        
-        # ... (rest of the menu creation code)
+        settings_menu = menubar.addMenu('Settings')
+        formula_action = QAction('Force Formulas', self)
+        formula_action.triggered.connect(self.open_force_formula_dialog)
+        settings_menu.addAction(formula_action)
 
         # Central widget
         central_widget = QWidget()
@@ -641,6 +663,10 @@ class MainWindow(QMainWindow):
         remove_object_button.clicked.connect(self.remove_selected_object)
         right_layout.addWidget(remove_object_button)
 
+        edit_object_button = QPushButton("Edit Selected Object")
+        edit_object_button.clicked.connect(self.edit_selected_object)
+        right_layout.addWidget(edit_object_button)
+
         right_panel.setLayout(right_layout)
         main_layout.addWidget(right_panel, 1)
 
@@ -653,13 +679,30 @@ class MainWindow(QMainWindow):
     def on_object_selected(self, index):
         self.selected_objects_list.clear()
         obj = self.visualizer.objects[index]
-        self.selected_objects_list.addItem(f"Object {index}: {obj.position}")
+        self.selected_objects_list.addItem(
+            f"Object {index}: pos={obj.position}, mass={obj.mass}, radius={obj.radius}")
 
     def remove_selected_object(self):
         if self.selected_objects_list.count() > 0:
             index = int(self.selected_objects_list.item(0).text().split(':')[0].split(' ')[1])
             self.visualizer.remove_object(index)
             self.selected_objects_list.clear()
+
+    def edit_selected_object(self):
+        if self.selected_objects_list.count() > 0:
+            index = int(self.selected_objects_list.item(0).text().split(':')[0].split(' ')[1])
+            obj = self.visualizer.objects[index]
+            dlg = ObjectSettingsDialog(obj, self)
+            if dlg.exec_():
+                obj.mass = dlg.mass_spin.value()
+                obj.radius = dlg.radius_spin.value()
+                self.visualizer.update()
+
+    def open_force_formula_dialog(self):
+        dlg = ForceFormulasDialog(self.visualizer.force_formulas, self)
+        if dlg.exec_():
+            formulas = {name: edit.text() for name, edit in dlg.inputs.items()}
+            self.visualizer.update_force_formulas(formulas)
 
 
 def visualize_grid(space_time_grid):
