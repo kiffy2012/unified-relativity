@@ -1,16 +1,17 @@
 import sys
+
 from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
                              QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
                              QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
                              QAction, QStackedWidget, QLineEdit, QDialog,
                              QFormLayout, QDoubleSpinBox)
+
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
 from OpenGL.GL import *
 from OpenGL.GLU import *
 import numpy as np
 from space_object import SpaceObject
-from PyQt5.QtGui import QVector3D
 import math
 from PyQt5.QtCore import pyqtSignal
 
@@ -37,6 +38,7 @@ class GridVisualizer(QOpenGLWidget):
             "weak": "0",
         }
 
+
     def initializeGL(self):
         glClearColor(0, 0, 0, 1)
         glEnable(GL_DEPTH_TEST)
@@ -54,57 +56,6 @@ class GridVisualizer(QOpenGLWidget):
         gluPerspective(45, aspect, 0.01, 1000.0)
 
     def paintGL(self):
-        print("Starting paintGL")
-        try:
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            glMatrixMode(GL_MODELVIEW)
-            glLoadIdentity()
-            glTranslatef(0, 0, self.zoom)
-            glRotatef(self.rotation.x(), 1, 0, 0)
-            glRotatef(self.rotation.y(), 0, 1, 0)
-            glTranslatef(self.offset.x(), self.offset.y(), self.offset.z())
-
-            # Draw grid
-            glBegin(GL_LINES)
-            # ... (rest of the grid drawing code)
-            glEnd()
-
-            # Draw objects
-            print(f"Number of objects to draw: {len(self.objects)}")
-            for i, obj in enumerate(self.objects):
-                print(f"Drawing object {i}: position={obj.position}, radius={obj.radius}, color={obj.color}")
-                self.draw_sphere(obj.position, obj.radius, obj.color)
-            
-            print("paintGL completed successfully")
-        except Exception as e:
-            print(f"Error in paintGL: {str(e)}")
-            import traceback
-            traceback.print_exc()
-
-
-        try:
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            glMatrixMode(GL_MODELVIEW)
-            glLoadIdentity()
-            glTranslatef(0, 0, self.zoom)
-            glRotatef(self.rotation.x(), 1, 0, 0)
-            glRotatef(self.rotation.y(), 0, 1, 0)
-            glTranslatef(self.offset.x(), self.offset.y(), self.offset.z())
-
-            # Draw grid
-            glBegin(GL_LINES)
-            # ... (rest of the grid drawing code)
-            glEnd()
-
-        # Draw objects
-            for obj in self.objects:
-                self.draw_sphere(obj.position, obj.radius, obj.color)
-        
-            print("paintGL completed successfully")
-        except Exception as e:
-            print(f"Error in paintGL: {str(e)}")
-            import traceback
-            traceback.print_exc()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -114,6 +65,7 @@ class GridVisualizer(QOpenGLWidget):
         glTranslatef(self.offset.x(), self.offset.y(), self.offset.z())
 
         if self.grid_density >= 2:
+
             glBegin(GL_LINES)
             step = 1.0 / (self.grid_density - 1)
             glColor4f(1, 1, 1, self.grid_opacity)
@@ -166,6 +118,7 @@ class GridVisualizer(QOpenGLWidget):
             glEnd()
 
         # Draw objects
+
         for obj in self.objects:
             self.draw_sphere(obj.position, obj.radius, obj.color)
 
@@ -189,7 +142,7 @@ class GridVisualizer(QOpenGLWidget):
         self.lastPos = event.pos()
 
     def wheelEvent(self, event):
-        self.zoom += event.angleDelta().y() / 120
+        self.zoom += event.angleDelta().y() / 60.0
         self.update()
 
     def set_grid_opacity(self, opacity):
@@ -224,16 +177,20 @@ class GridVisualizer(QOpenGLWidget):
         except Exception:
             return 0
 
+
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
         for obj in self.objects:
             r_vec = QVector3D(position.x() - obj.position.x(),
                               position.y() - obj.position.y(),
                               position.z() - obj.position.z())
+
             r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
             if r == 0:
                 continue
             r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+
+
             for formula in self.force_formulas.values():
                 value = self._evaluate_formula(formula, r, obj.mass)
                 if value != 0:
@@ -241,6 +198,7 @@ class GridVisualizer(QOpenGLWidget):
         return QVector3D(position.x() + displacement.x(),
                          position.y() + displacement.y(),
                          position.z() + displacement.z())
+
 
     def draw_sphere(self, position, radius, color):
         glPushMatrix()
@@ -274,14 +232,14 @@ class GridVisualizer(QOpenGLWidget):
         glPopMatrix()
 
     def add_object(self, position, radius, color, mass):
+
         print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
         try:
             new_object = SpaceObject(position, radius, color, mass)
             print("SpaceObject created successfully")
+
             self.objects.append(new_object)
-            print(f"Object appended to self.objects. Total objects: {len(self.objects)}")
             self.update()
-            print("GridVisualizer: update() called")
         except Exception as e:
             print(f"Error in add_object: {str(e)}")
             import traceback
@@ -303,13 +261,6 @@ class GridVisualizer(QOpenGLWidget):
                 return i
         return None
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            selected_index = self.select_object(event.x(), event.y())
-            if selected_index is not None:
-                self.object_selected.emit(selected_index)
-            self.lastPos = event.pos()
-        super().mousePressEvent(event)
     def remove_object(self, index):
         if 0 <= index < len(self.objects):
             del self.objects[index]
@@ -400,6 +351,19 @@ class SettingsPanel(QWidget):
         opacity_group.setLayout(opacity_layout)
         layout.addWidget(opacity_group)
 
+        # Force grid toggles
+        force_group = QGroupBox("Force Grids")
+        force_layout = QVBoxLayout()
+        self.force_checks = {}
+        for name in ["gravity", "electromagnetic", "strong", "weak"]:
+            check = QCheckBox(name.capitalize())
+            check.setChecked(self.visualizer.show_forces[name])
+            check.stateChanged.connect(lambda state, n=name: self.toggle_force(n, state))
+            self.force_checks[name] = check
+            force_layout.addWidget(check)
+        force_group.setLayout(force_layout)
+        layout.addWidget(force_group)
+
         self.setLayout(layout)
 
     def set_dimension(self, dim):
@@ -417,6 +381,10 @@ class SettingsPanel(QWidget):
         opacity = value / 100.0
         self.visualizer.set_grid_opacity(opacity)
 
+    def toggle_force(self, name, state):
+        self.visualizer.show_forces[name] = state == Qt.Checked
+        self.visualizer.update()
+
 class MainWindow(QMainWindow):
     def __init__(self, space_time_grid):
         super().__init__()
@@ -427,97 +395,6 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.visualizer.update)
         self.timer.start(16)  # Update roughly 60 times per second
-
-    def initUI(self):
-        self.setWindowTitle('Unified Theory Simulation')
-        self.setGeometry(100, 100, 1400, 800)
-
-        # Create menu bar
-        menubar = self.menuBar()
-        
-        # File menu
-        file_menu = menubar.addMenu('File')
-        file_menu.addAction('New Simulation')
-        file_menu.addAction('Open Simulation')
-        file_menu.addAction('Save Simulation')
-        file_menu.addAction('Export Results')
-        file_menu.addSeparator()
-        file_menu.addAction('Exit')
-
-        # Edit menu
-        edit_menu = menubar.addMenu('Edit')
-        edit_menu.addAction('Undo')
-        edit_menu.addAction('Redo')
-        edit_menu.addSeparator()
-        edit_menu.addAction('Preferences')
-
-        # View menu
-        view_menu = menubar.addMenu('View')
-        view_menu.addAction('Reset View')
-        view_menu.addAction('Toggle 3D/4D View')
-        view_menu.addAction('Show/Hide Grid')
-
-        # Simulation menu
-        sim_menu = menubar.addMenu('Simulation')
-        sim_menu.addAction('Start')
-        sim_menu.addAction('Pause')
-        sim_menu.addAction('Stop')
-        sim_menu.addAction('Step Forward')
-        sim_menu.addSeparator()
-        sim_menu.addAction('Configure Parameters')
-
-        # Analysis menu
-        analysis_menu = menubar.addMenu('Analysis')
-        analysis_menu.addAction('Generate Report')
-        analysis_menu.addAction('Plot Results')
-        analysis_menu.addAction('Export Data')
-
-        # Help menu
-        help_menu = menubar.addMenu('Help')
-        help_menu.addAction('Documentation')
-        help_menu.addAction('About')
-
-        # Central widget
-        central_widget = QWidget()
-        main_layout = QHBoxLayout()
-
-        # Left panel (visualization)
-        self.visualizer = GridVisualizer(self.space_time_grid)
-        main_layout.addWidget(self.visualizer, 3)
-
-        # Right panel (controls and object adding)
-        right_panel = QWidget()
-        right_layout = QVBoxLayout()
-
-        # Scale selection
-        scale_layout = QHBoxLayout()
-        scale_label = QLabel("Scale:")
-        self.scale_combo = QComboBox()
-        self.scale_combo.addItems(["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"])
-        self.scale_combo.currentTextChanged.connect(self.on_scale_changed)
-        scale_layout.addWidget(scale_label)
-        scale_layout.addWidget(self.scale_combo)
-        right_layout.addLayout(scale_layout)
-
-        # Settings panel
-        self.settings_panel = SettingsPanel(self.visualizer)
-        right_layout.addWidget(self.settings_panel)
-
-        # Object adding
-        self.object_stack = QStackedWidget()
-        self.setup_object_lists()
-        right_layout.addWidget(QLabel("Add Objects:"))
-        right_layout.addWidget(self.object_stack)
-
-        add_object_button = QPushButton("Add Selected Object")
-        add_object_button.clicked.connect(self.add_selected_object)
-        right_layout.addWidget(add_object_button)
-
-        right_panel.setLayout(right_layout)
-        main_layout.addWidget(right_panel, 1)
-
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
 
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
@@ -543,24 +420,23 @@ class MainWindow(QMainWindow):
         self.object_stack.setCurrentIndex(self.scale_combo.currentIndex())
 
     def add_selected_object(self):
-        print("Starting add_selected_object method")
         try:
             current_list = self.object_stack.currentWidget()
             if current_list.currentItem():
                 selected_object = current_list.currentItem().text()
                 scale = self.scale_combo.currentText()
-                print(f"Selected object: {selected_object}, Scale: {scale}")
-                
                 position = QVector3D(0.5, 0.5, 0.5)  # Center of the grid
                 radius = self.get_object_radius(scale)
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
+
                 print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
 
                 print("Calling visualizer.add_object")
                 self.visualizer.add_object(position, radius, color, mass)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
+
         except Exception as e:
             print(f"Error in add_selected_object: {str(e)}")
             import traceback
