@@ -48,6 +48,8 @@ class GridVisualizer(QOpenGLWidget):
         self.offset = QVector3D(-0.5, -0.5, -0.5)
         self.dimension = 3
         self.objects = []
+        # Translation applied to grid to simulate object velocity
+        self.grid_translation = QVector3D(0.0, 0.0, 0.0)
         # Default formulas for the four fundamental forces. "r" represents the
         # distance from an object.
         self.force_formulas = {
@@ -254,6 +256,25 @@ class GridVisualizer(QOpenGLWidget):
             position.z() + displacement.z(),
         )
 
+    def advance_simulation(self, dt):
+        for obj in self.objects:
+            self.grid_translation.setX(self.grid_translation.x() - obj.velocity.x() * dt)
+            self.grid_translation.setY(self.grid_translation.y() - obj.velocity.y() * dt)
+            self.grid_translation.setZ(self.grid_translation.z() - obj.velocity.z() * dt)
+
+        if self.grid_translation.x() <= -1.0:
+            self.grid_translation.setX(self.grid_translation.x() + 1.0)
+        elif self.grid_translation.x() >= 1.0:
+            self.grid_translation.setX(self.grid_translation.x() - 1.0)
+        if self.grid_translation.y() <= -1.0:
+            self.grid_translation.setY(self.grid_translation.y() + 1.0)
+        elif self.grid_translation.y() >= 1.0:
+            self.grid_translation.setY(self.grid_translation.y() - 1.0)
+        if self.grid_translation.z() <= -1.0:
+            self.grid_translation.setZ(self.grid_translation.z() + 1.0)
+        elif self.grid_translation.z() >= 1.0:
+            self.grid_translation.setZ(self.grid_translation.z() - 1.0)
+
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
         for obj in self.objects:
@@ -310,6 +331,16 @@ class GridVisualizer(QOpenGLWidget):
         )
 
     def _draw_displaced_line(self, start, end):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -323,6 +354,16 @@ class GridVisualizer(QOpenGLWidget):
         glEnd()
 
     def _draw_force_line(self, start, end, force_name):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -361,23 +402,41 @@ class GridVisualizer(QOpenGLWidget):
                     force_name,
                 )
         else:
+            offset = self.grid_translation
+            glBegin(GL_LINES)
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
-
-                    p1 = self._apply_force(QVector3D(0, i * step, j * step), force_name)
-                    p2 = self._apply_force(QVector3D(1, i * step, j * step), force_name)
+                    p1 = self._apply_force(
+                        QVector3D(0 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
+                    p2 = self._apply_force(
+                        QVector3D(1 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p1.x(), p1.y(), p1.z())
                     glVertex3f(p2.x(), p2.y(), p2.z())
-                    p3 = self._apply_force(QVector3D(i * step, 0, j * step), force_name)
-                    p4 = self._apply_force(QVector3D(i * step, 1, j * step), force_name)
+                    p3 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 0 + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
+                    p4 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 1 + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p3.x(), p3.y(), p3.z())
                     glVertex3f(p4.x(), p4.y(), p4.z())
-                    p5 = self._apply_force(QVector3D(i * step, j * step, 0), force_name)
-                    p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
+                    p5 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 0 + offset.z()),
+                        force_name,
+                    )
+                    p6 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 1 + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
-
-        glEnd()
+            glEnd()
 
 
 
@@ -412,13 +471,15 @@ class GridVisualizer(QOpenGLWidget):
         
         glPopMatrix()
 
-    def add_object(self, position, radius, color, mass):
+    def add_object(self, position, radius, color, mass, velocity=None):
         print(
             f"GridVisualizer: Adding object with position={position}, radius={radius}, "
-            f"color={color}, mass={mass}"
+            f"color={color}, mass={mass}, velocity={velocity}"
         )
         try:
-            new_object = SpaceObject(position, radius, color, mass)
+            if velocity is None:
+                velocity = QVector3D(0.0, 0.0, 0.0)
+            new_object = SpaceObject(position, radius, color, mass, velocity)
             print("SpaceObject created successfully")
             self.objects.append(new_object)
             self.update()
@@ -480,6 +541,19 @@ class ObjectSettingsDialog(QDialog):
         self.radius_spin.setRange(0.001, 1.0)
         self.radius_spin.setValue(obj.radius)
         form.addRow("Radius", self.radius_spin)
+        # Velocity components
+        self.vx_spin = QDoubleSpinBox()
+        self.vx_spin.setRange(-1e6, 1e6)
+        self.vx_spin.setValue(obj.velocity.x())
+        form.addRow("Velocity X", self.vx_spin)
+        self.vy_spin = QDoubleSpinBox()
+        self.vy_spin.setRange(-1e6, 1e6)
+        self.vy_spin.setValue(obj.velocity.y())
+        form.addRow("Velocity Y", self.vy_spin)
+        self.vz_spin = QDoubleSpinBox()
+        self.vz_spin.setRange(-1e6, 1e6)
+        self.vz_spin.setValue(obj.velocity.z())
+        form.addRow("Velocity Z", self.vz_spin)
         apply = QPushButton("Apply")
         apply.clicked.connect(self.accept)
         form.addRow(apply)
@@ -574,8 +648,12 @@ class MainWindow(QMainWindow):
         
         # Add a timer to trigger updates
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.visualizer.update)
+        self.timer.timeout.connect(self.update_simulation)
         self.timer.start(16)  # Update roughly 60 times per second
+
+    def update_simulation(self):
+        self.visualizer.advance_simulation(0.016)
+        self.visualizer.update()
 
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
@@ -610,12 +688,13 @@ class MainWindow(QMainWindow):
                 radius = self.get_object_radius(scale)
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
+                velocity = QVector3D(0.0, 0.0, 0.0)
 
                 print(
                     f"Object properties: position={position}, radius={radius}, "
-                    f"color={color}, mass={mass}"
+                    f"color={color}, mass={mass}, velocity={velocity}"
                 )
-                self.visualizer.add_object(position, radius, color, mass)
+                self.visualizer.add_object(position, radius, color, mass, velocity)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
 
@@ -738,7 +817,7 @@ class MainWindow(QMainWindow):
         self.selected_objects_list.clear()
         obj = self.visualizer.objects[index]
         self.selected_objects_list.addItem(
-            f"Object {index}: pos={obj.position}, mass={obj.mass}, radius={obj.radius}")
+            f"Object {index}: pos={obj.position}, vel={obj.velocity}, mass={obj.mass}, radius={obj.radius}")
 
     def remove_selected_object(self):
         if self.selected_objects_list.count() > 0:
@@ -754,7 +833,9 @@ class MainWindow(QMainWindow):
             if dlg.exec_():
                 obj.mass = dlg.mass_spin.value()
                 obj.radius = dlg.radius_spin.value()
+                obj.velocity = QVector3D(dlg.vx_spin.value(), dlg.vy_spin.value(), dlg.vz_spin.value())
                 self.visualizer.update()
+                self.on_object_selected(index)
 
     def open_force_formula_dialog(self):
         dlg = ForceFormulasDialog(self.visualizer.force_formulas, self)
