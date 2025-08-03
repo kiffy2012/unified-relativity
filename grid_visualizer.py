@@ -29,7 +29,6 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import numpy as np
 from space_object import SpaceObject
 import math
 from PyQt5.QtCore import pyqtSignal
@@ -48,6 +47,8 @@ class GridVisualizer(QOpenGLWidget):
         self.offset = QVector3D(-0.5, -0.5, -0.5)
         self.dimension = 3
         self.objects = []
+        # Translation applied to grid to simulate object velocity
+        self.grid_translation = QVector3D(0.0, 0.0, 0.0)
         # Default formulas for the four fundamental forces. "r" represents the
         # distance from an object.
         self.force_formulas = {
@@ -112,45 +113,76 @@ class GridVisualizer(QOpenGLWidget):
 
             step = 1.0 / (self.grid_density - 1)
             glColor4f(1, 1, 1, self.grid_opacity)
+            ox = self.grid_translation.x()
+            oy = self.grid_translation.y()
+            oz = self.grid_translation.z()
 
             if self.dimension == 1:  # 1D: single line
-                self._draw_displaced_line(QVector3D(0, 0.5, 0.5), QVector3D(1, 0.5, 0.5))
+                self._draw_displaced_line(
+                    QVector3D(0, 0.5, 0.5), QVector3D(1, 0.5, 0.5)
+                )
                 for i in range(self.grid_density):
+                    x = (i * step + ox) % 1.0
+                    if i in (0, self.grid_density - 1):
+                        continue
                     self._draw_displaced_line(
-                        QVector3D(i * step, 0.49, 0.5),
-                        QVector3D(i * step, 0.51, 0.5),
+                        QVector3D(x, 0.49, 0.5),
+                        QVector3D(x, 0.51, 0.5),
                     )
 
             elif self.dimension == 2:  # 2D: grid on XY plane
+                self._draw_bounding_square()
                 for i in range(self.grid_density):
-                    # Vertical lines
-                    self._draw_displaced_line(
-                        QVector3D(i * step, 0, 0.5),
-                        QVector3D(i * step, 1, 0.5),
-                    )
-                    # Horizontal lines
-                    self._draw_displaced_line(
-                        QVector3D(0, i * step, 0.5),
-                        QVector3D(1, i * step, 0.5),
-                    )
+                    x = (i * step + ox) % 1.0
+                    if i not in (0, self.grid_density - 1):
+                        self._draw_displaced_line(
+                            QVector3D(x, 0, 0.5),
+                            QVector3D(x, 1, 0.5),
+                        )
+                    y = (i * step + oy) % 1.0
+                    if i not in (0, self.grid_density - 1):
+                        self._draw_displaced_line(
+                            QVector3D(0, y, 0.5),
+                            QVector3D(1, y, 0.5),
+                        )
 
             else:  # 3D: cube
-                for i in range(self.grid_density):
-                    for j in range(self.grid_density):
-                        # X-axis aligned lines
+                self._draw_bounding_box()
+                for iy in range(self.grid_density):
+                    y = (iy * step + oy) % 1.0
+                    for iz in range(self.grid_density):
+                        z = (iz * step + oz) % 1.0
+                        if iy in (0, self.grid_density - 1) and iz in (
+                            0,
+                            self.grid_density - 1,
+                        ):
+                            continue
                         self._draw_displaced_line(
-                            QVector3D(0, i * step, j * step),
-                            QVector3D(1, i * step, j * step),
+                            QVector3D(0, y, z), QVector3D(1, y, z)
                         )
-                        # Y-axis aligned lines
+                for ix in range(self.grid_density):
+                    x = (ix * step + ox) % 1.0
+                    for iz in range(self.grid_density):
+                        z = (iz * step + oz) % 1.0
+                        if ix in (0, self.grid_density - 1) and iz in (
+                            0,
+                            self.grid_density - 1,
+                        ):
+                            continue
                         self._draw_displaced_line(
-                            QVector3D(i * step, 0, j * step),
-                            QVector3D(i * step, 1, j * step),
+                            QVector3D(x, 0, z), QVector3D(x, 1, z)
                         )
-                        # Z-axis aligned lines
+                for ix in range(self.grid_density):
+                    x = (ix * step + ox) % 1.0
+                    for iy in range(self.grid_density):
+                        y = (iy * step + oy) % 1.0
+                        if ix in (0, self.grid_density - 1) and iy in (
+                            0,
+                            self.grid_density - 1,
+                        ):
+                            continue
                         self._draw_displaced_line(
-                            QVector3D(i * step, j * step, 0),
-                            QVector3D(i * step, j * step, 1),
+                            QVector3D(x, y, 0), QVector3D(x, y, 1)
                         )
 
 
@@ -221,7 +253,6 @@ class GridVisualizer(QOpenGLWidget):
                     "r": r,
                     "m": m,
                     "math": math,
-                    "np": np,
                     **self.constants,
                 },
             )
@@ -253,6 +284,52 @@ class GridVisualizer(QOpenGLWidget):
             position.y() + displacement.y(),
             position.z() + displacement.z(),
         )
+
+    def _draw_bounding_square(self):
+        glBegin(GL_LINES)
+        edges = [
+            (0, 0, 0.5, 1, 0, 0.5),
+            (1, 0, 0.5, 1, 1, 0.5),
+            (1, 1, 0.5, 0, 1, 0.5),
+            (0, 1, 0.5, 0, 0, 0.5),
+        ]
+        for e in edges:
+            glVertex3f(e[0], e[1], e[2])
+            glVertex3f(e[3], e[4], e[5])
+        glEnd()
+
+    def _draw_bounding_box(self):
+        glBegin(GL_LINES)
+        edges = [
+            (0, 0, 0, 1, 0, 0),
+            (1, 0, 0, 1, 1, 0),
+            (1, 1, 0, 0, 1, 0),
+            (0, 1, 0, 0, 0, 0),
+            (0, 0, 1, 1, 0, 1),
+            (1, 0, 1, 1, 1, 1),
+            (1, 1, 1, 0, 1, 1),
+            (0, 1, 1, 0, 0, 1),
+            (0, 0, 0, 0, 0, 1),
+            (1, 0, 0, 1, 0, 1),
+            (1, 1, 0, 1, 1, 1),
+            (0, 1, 0, 0, 1, 1),
+        ]
+        for e in edges:
+            glVertex3f(e[0], e[1], e[2])
+            glVertex3f(e[3], e[4], e[5])
+        glEnd()
+
+    def advance_simulation(self, dt):
+        for obj in self.objects:
+            self.grid_translation.setX(
+                (self.grid_translation.x() - obj.velocity.x() * dt) % 1.0
+            )
+            self.grid_translation.setY(
+                (self.grid_translation.y() - obj.velocity.y() * dt) % 1.0
+            )
+            self.grid_translation.setZ(
+                (self.grid_translation.z() - obj.velocity.z() * dt) % 1.0
+            )
 
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
@@ -338,46 +415,75 @@ class GridVisualizer(QOpenGLWidget):
     def _draw_grid_for_force(self, force_name):
         glColor4f(*self.force_colors[force_name], self.grid_opacity)
         step = 1.0 / (self.grid_density - 1)
+        ox = self.grid_translation.x()
+        oy = self.grid_translation.y()
+        oz = self.grid_translation.z()
         if self.dimension == 1:
             self._draw_force_line(
                 QVector3D(0, 0.5, 0.5), QVector3D(1, 0.5, 0.5), force_name
             )
             for i in range(self.grid_density):
+                x = (i * step + ox) % 1.0
+                if i in (0, self.grid_density - 1):
+                    continue
                 self._draw_force_line(
-                    QVector3D(i * step, 0.49, 0.5),
-                    QVector3D(i * step, 0.51, 0.5),
+                    QVector3D(x, 0.49, 0.5),
+                    QVector3D(x, 0.51, 0.5),
                     force_name,
                 )
         elif self.dimension == 2:
             for i in range(self.grid_density):
-                self._draw_force_line(
-                    QVector3D(i * step, 0, 0.5),
-                    QVector3D(i * step, 1, 0.5),
-                    force_name,
-                )
-                self._draw_force_line(
-                    QVector3D(0, i * step, 0.5),
-                    QVector3D(1, i * step, 0.5),
-                    force_name,
-                )
+                x = (i * step + ox) % 1.0
+                if i not in (0, self.grid_density - 1):
+                    self._draw_force_line(
+                        QVector3D(x, 0, 0.5),
+                        QVector3D(x, 1, 0.5),
+                        force_name,
+                    )
+                y = (i * step + oy) % 1.0
+                if i not in (0, self.grid_density - 1):
+                    self._draw_force_line(
+                        QVector3D(0, y, 0.5),
+                        QVector3D(1, y, 0.5),
+                        force_name,
+                    )
         else:
-            for i in range(self.grid_density):
-                for j in range(self.grid_density):
-
-                    p1 = self._apply_force(QVector3D(0, i * step, j * step), force_name)
-                    p2 = self._apply_force(QVector3D(1, i * step, j * step), force_name)
-                    glVertex3f(p1.x(), p1.y(), p1.z())
-                    glVertex3f(p2.x(), p2.y(), p2.z())
-                    p3 = self._apply_force(QVector3D(i * step, 0, j * step), force_name)
-                    p4 = self._apply_force(QVector3D(i * step, 1, j * step), force_name)
-                    glVertex3f(p3.x(), p3.y(), p3.z())
-                    glVertex3f(p4.x(), p4.y(), p4.z())
-                    p5 = self._apply_force(QVector3D(i * step, j * step, 0), force_name)
-                    p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
-                    glVertex3f(p5.x(), p5.y(), p5.z())
-                    glVertex3f(p6.x(), p6.y(), p6.z())
-
-        glEnd()
+            for iy in range(self.grid_density):
+                y = (iy * step + oy) % 1.0
+                for iz in range(self.grid_density):
+                    z = (iz * step + oz) % 1.0
+                    if iy in (0, self.grid_density - 1) and iz in (
+                        0,
+                        self.grid_density - 1,
+                    ):
+                        continue
+                    self._draw_force_line(
+                        QVector3D(0, y, z), QVector3D(1, y, z), force_name
+                    )
+            for ix in range(self.grid_density):
+                x = (ix * step + ox) % 1.0
+                for iz in range(self.grid_density):
+                    z = (iz * step + oz) % 1.0
+                    if ix in (0, self.grid_density - 1) and iz in (
+                        0,
+                        self.grid_density - 1,
+                    ):
+                        continue
+                    self._draw_force_line(
+                        QVector3D(x, 0, z), QVector3D(x, 1, z), force_name
+                    )
+            for ix in range(self.grid_density):
+                x = (ix * step + ox) % 1.0
+                for iy in range(self.grid_density):
+                    y = (iy * step + oy) % 1.0
+                    if ix in (0, self.grid_density - 1) and iy in (
+                        0,
+                        self.grid_density - 1,
+                    ):
+                        continue
+                    self._draw_force_line(
+                        QVector3D(x, y, 0), QVector3D(x, y, 1), force_name
+                    )
 
 
 
@@ -412,13 +518,15 @@ class GridVisualizer(QOpenGLWidget):
         
         glPopMatrix()
 
-    def add_object(self, position, radius, color, mass):
+    def add_object(self, position, radius, color, mass, velocity=None):
         print(
             f"GridVisualizer: Adding object with position={position}, radius={radius}, "
-            f"color={color}, mass={mass}"
+            f"color={color}, mass={mass}, velocity={velocity}"
         )
         try:
-            new_object = SpaceObject(position, radius, color, mass)
+            if velocity is None:
+                velocity = QVector3D(0.0, 0.0, 0.0)
+            new_object = SpaceObject(position, radius, color, mass, velocity)
             print("SpaceObject created successfully")
             self.objects.append(new_object)
             self.update()
@@ -480,6 +588,19 @@ class ObjectSettingsDialog(QDialog):
         self.radius_spin.setRange(0.001, 1.0)
         self.radius_spin.setValue(obj.radius)
         form.addRow("Radius", self.radius_spin)
+        # Velocity components
+        self.vx_spin = QDoubleSpinBox()
+        self.vx_spin.setRange(-1e6, 1e6)
+        self.vx_spin.setValue(obj.velocity.x())
+        form.addRow("Velocity X", self.vx_spin)
+        self.vy_spin = QDoubleSpinBox()
+        self.vy_spin.setRange(-1e6, 1e6)
+        self.vy_spin.setValue(obj.velocity.y())
+        form.addRow("Velocity Y", self.vy_spin)
+        self.vz_spin = QDoubleSpinBox()
+        self.vz_spin.setRange(-1e6, 1e6)
+        self.vz_spin.setValue(obj.velocity.z())
+        form.addRow("Velocity Z", self.vz_spin)
         apply = QPushButton("Apply")
         apply.clicked.connect(self.accept)
         form.addRow(apply)
@@ -574,8 +695,12 @@ class MainWindow(QMainWindow):
         
         # Add a timer to trigger updates
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.visualizer.update)
+        self.timer.timeout.connect(self.update_simulation)
         self.timer.start(16)  # Update roughly 60 times per second
+
+    def update_simulation(self):
+        self.visualizer.advance_simulation(0.016)
+        self.visualizer.update()
 
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
@@ -610,12 +735,13 @@ class MainWindow(QMainWindow):
                 radius = self.get_object_radius(scale)
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
+                velocity = QVector3D(0.0, 0.0, 0.0)
 
                 print(
                     f"Object properties: position={position}, radius={radius}, "
-                    f"color={color}, mass={mass}"
+                    f"color={color}, mass={mass}, velocity={velocity}"
                 )
-                self.visualizer.add_object(position, radius, color, mass)
+                self.visualizer.add_object(position, radius, color, mass, velocity)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
 
@@ -738,7 +864,7 @@ class MainWindow(QMainWindow):
         self.selected_objects_list.clear()
         obj = self.visualizer.objects[index]
         self.selected_objects_list.addItem(
-            f"Object {index}: pos={obj.position}, mass={obj.mass}, radius={obj.radius}")
+            f"Object {index}: pos={obj.position}, vel={obj.velocity}, mass={obj.mass}, radius={obj.radius}")
 
     def remove_selected_object(self):
         if self.selected_objects_list.count() > 0:
@@ -754,7 +880,9 @@ class MainWindow(QMainWindow):
             if dlg.exec_():
                 obj.mass = dlg.mass_spin.value()
                 obj.radius = dlg.radius_spin.value()
+                obj.velocity = QVector3D(dlg.vx_spin.value(), dlg.vy_spin.value(), dlg.vz_spin.value())
                 self.visualizer.update()
+                self.on_object_selected(index)
 
     def open_force_formula_dialog(self):
         dlg = ForceFormulasDialog(self.visualizer.force_formulas, self)
