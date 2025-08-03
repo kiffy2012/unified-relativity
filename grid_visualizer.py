@@ -286,6 +286,41 @@ class GridVisualizer(QOpenGLWidget):
         )
 
 
+
+    def _draw_bounding_box(self):
+        glBegin(GL_LINES)
+        edges = [
+            (0, 0, 0, 1, 0, 0),
+            (1, 0, 0, 1, 1, 0),
+            (1, 1, 0, 0, 1, 0),
+            (0, 1, 0, 0, 0, 0),
+            (0, 0, 1, 1, 0, 1),
+            (1, 0, 1, 1, 1, 1),
+            (1, 1, 1, 0, 1, 1),
+            (0, 1, 1, 0, 0, 1),
+            (0, 0, 0, 0, 0, 1),
+            (1, 0, 0, 1, 0, 1),
+            (1, 1, 0, 1, 1, 1),
+            (0, 1, 0, 0, 1, 1),
+        ]
+        for e in edges:
+            glVertex3f(e[0], e[1], e[2])
+            glVertex3f(e[3], e[4], e[5])
+        glEnd()
+
+    def advance_simulation(self, dt):
+        for obj in self.objects:
+            self.grid_translation.setX(
+                (self.grid_translation.x() - obj.velocity.x() * dt) % 1.0
+            )
+            self.grid_translation.setY(
+                (self.grid_translation.y() - obj.velocity.y() * dt) % 1.0
+            )
+            self.grid_translation.setZ(
+                (self.grid_translation.z() - obj.velocity.z() * dt) % 1.0
+            )
+
+
     def advance_simulation(self, dt):
         for obj in self.objects:
             self.grid_translation.setX(self.grid_translation.x() - obj.velocity.x() * dt)
@@ -304,6 +339,7 @@ class GridVisualizer(QOpenGLWidget):
             self.grid_translation.setZ(self.grid_translation.z() + 1.0)
         elif self.grid_translation.z() >= 1.0:
             self.grid_translation.setZ(self.grid_translation.z() - 1.0)
+
 
 
     def _apply_displacement(self, position):
@@ -326,35 +362,6 @@ class GridVisualizer(QOpenGLWidget):
                 value = self._evaluate_formula(formula, r, obj.mass)
                 if value != 0 and scaling:
                     displacement -= r_unit * value * scaling
-        return QVector3D(
-            position.x() + displacement.x(),
-            position.y() + displacement.y(),
-            position.z() + displacement.z(),
-        )
-
-    def _apply_displacement(self, position):
-        displacement = QVector3D(0, 0, 0)
-        for obj in self.objects:
-            r_vec = QVector3D(
-                position.x() - obj.position.x(),
-                position.y() - obj.position.y(),
-                position.z() - obj.position.z(),
-            )
-
-
-            r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
-            if r == 0:
-                continue
-            r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
-
-
-            for formula in self.force_formulas.values():
-                value = self._evaluate_formula(formula, r, obj.mass)
-                if value != 0:
-                    # Prevent extreme displacements that collapse the grid
-                    scaled = (value / (1 + abs(value))) * 0.2
-                    displacement -= r_unit * scaled
-
         return QVector3D(
             position.x() + displacement.x(),
             position.y() + displacement.y(),
@@ -444,6 +451,7 @@ class GridVisualizer(QOpenGLWidget):
                     )
         else:
 
+
             offset = self.grid_translation
 
             glBegin(GL_LINES)
@@ -480,6 +488,7 @@ class GridVisualizer(QOpenGLWidget):
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
             glEnd()
+
 
 
 
