@@ -1,11 +1,29 @@
 import sys
 
 
-from PyQt5.QtWidgets import (QApplication, QOpenGLWidget, QMainWindow, QWidget,
-                             QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox,
-                             QPushButton, QGroupBox, QListWidget, QMenuBar, QMenu,
-                             QAction, QStackedWidget, QLineEdit, QDialog,
-                             QFormLayout, QDoubleSpinBox)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QOpenGLWidget,
+    QMainWindow,
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QSlider,
+    QComboBox,
+    QPushButton,
+    QGroupBox,
+    QListWidget,
+    QMenuBar,
+    QMenu,
+    QAction,
+    QStackedWidget,
+    QLineEdit,
+    QDialog,
+    QFormLayout,
+    QDoubleSpinBox,
+    QCheckBox,
+)
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
@@ -33,11 +51,15 @@ class GridVisualizer(QOpenGLWidget):
         # Default formulas for the four fundamental forces. "r" represents the
         # distance from an object.
         self.force_formulas = {
-            "gravity": "m/(r*r)",
+            "gravity": "G * m / (r*r)",
             "electromagnetic": "0",
             "strong": "0",
             "weak": "0",
         }
+        # Scaling factors for each force so the grid does not collapse
+        self.force_scaling = {"gravity": 0.05}
+        # Constants accessible from formulas
+        self.constants = {"G": 1.0}
 
         self.show_forces = {
             "gravity": True,
@@ -197,8 +219,18 @@ class GridVisualizer(QOpenGLWidget):
         self.update()
 
     def _evaluate_formula(self, formula, r, m):
+        """Safely evaluate a force formula."""
         try:
-            return eval(formula, {"r": r, "m": m, "math": math, "np": np})
+            return eval(
+                formula,
+                {
+                    "r": r,
+                    "m": m,
+                    "math": math,
+                    "np": np,
+                    **self.constants,
+                },
+            )
         except Exception:
             return 0
 
@@ -206,6 +238,7 @@ class GridVisualizer(QOpenGLWidget):
     def _apply_force(self, position, force_name):
         displacement = QVector3D(0, 0, 0)
         formula = self.force_formulas.get(force_name, "0")
+        scaling = self.force_scaling.get(force_name, 0.0)
         for obj in self.objects:
             r_vec = QVector3D(
                 position.x() - obj.position.x(),
@@ -213,25 +246,39 @@ class GridVisualizer(QOpenGLWidget):
                 position.z() - obj.position.z(),
             )
 
-
-    def _apply_displacement(self, position):
-        displacement = QVector3D(0, 0, 0)
-        for obj in self.objects:
-            r_vec = QVector3D(position.x() - obj.position.x(),
-                              position.y() - obj.position.y(),
-                              position.z() - obj.position.z())
-
-
             r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
             if r == 0:
                 continue
             r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
 
             value = self._evaluate_formula(formula, r, obj.mass)
-            if value != 0:
-                # Prevent extreme displacements that collapse the grid
-                scaled = (value / (1 + abs(value))) * 0.2
-                displacement -= r_unit * scaled
+            if value != 0 and scaling:
+                displacement -= r_unit * value * scaling
+        return QVector3D(
+            position.x() + displacement.x(),
+            position.y() + displacement.y(),
+            position.z() + displacement.z(),
+        )
+
+    def _apply_displacement(self, position):
+        displacement = QVector3D(0, 0, 0)
+        for obj in self.objects:
+            r_vec = QVector3D(
+                position.x() - obj.position.x(),
+                position.y() - obj.position.y(),
+                position.z() - obj.position.z(),
+            )
+
+            r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
+            if r == 0:
+                continue
+            r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+
+            for name, formula in self.force_formulas.items():
+                scaling = self.force_scaling.get(name, 0.0)
+                value = self._evaluate_formula(formula, r, obj.mass)
+                if value != 0 and scaling:
+                    displacement -= r_unit * value * scaling
         return QVector3D(
             position.x() + displacement.x(),
             position.y() + displacement.y(),
@@ -277,17 +324,8 @@ class GridVisualizer(QOpenGLWidget):
                     p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
+
         glEnd()
-
-
-
-            for formula in self.force_formulas.values():
-                value = self._evaluate_formula(formula, r, obj.mass)
-                if value != 0:
-                    displacement -= r_unit * value
-        return QVector3D(position.x() + displacement.x(),
-                         position.y() + displacement.y(),
-                         position.z() + displacement.z())
 
 
 
@@ -323,17 +361,13 @@ class GridVisualizer(QOpenGLWidget):
         glPopMatrix()
 
     def add_object(self, position, radius, color, mass):
-
-        try:
-            new_object = SpaceObject(position, radius, color, mass)
-
-
-        print(f"GridVisualizer: Adding object with position={position}, radius={radius}, color={color}, mass={mass}")
+        print(
+            f"GridVisualizer: Adding object with position={position}, radius={radius}, "
+            f"color={color}, mass={mass}"
+        )
         try:
             new_object = SpaceObject(position, radius, color, mass)
             print("SpaceObject created successfully")
-
-
             self.objects.append(new_object)
             self.update()
         except Exception as e:
@@ -525,12 +559,10 @@ class MainWindow(QMainWindow):
                 color = self.get_object_color(selected_object)
                 mass = self.get_object_mass(scale)
 
-                self.visualizer.add_object(position, radius, color, mass)
-
-
-                print(f"Object properties: position={position}, radius={radius}, color={color}, mass={mass}")
-
-                print("Calling visualizer.add_object")
+                print(
+                    f"Object properties: position={position}, radius={radius}, "
+                    f"color={color}, mass={mass}"
+                )
                 self.visualizer.add_object(position, radius, color, mass)
                 print(f"Added {selected_object} at {scale} scale")
             print("Finished add_selected_object method")
