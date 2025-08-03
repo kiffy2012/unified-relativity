@@ -361,6 +361,7 @@ class GridVisualizer(QOpenGLWidget):
                     force_name,
                 )
         else:
+            glBegin(GL_LINES)
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
 
@@ -376,8 +377,7 @@ class GridVisualizer(QOpenGLWidget):
                     p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
-
-        glEnd()
+            glEnd()
 
 
 
