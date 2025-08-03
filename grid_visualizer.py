@@ -48,6 +48,8 @@ class GridVisualizer(QOpenGLWidget):
         self.offset = QVector3D(-0.5, -0.5, -0.5)
         self.dimension = 3
         self.objects = []
+        # Translation applied to grid to simulate object velocity
+        self.grid_translation = QVector3D(0.0, 0.0, 0.0)
         # Default formulas for the four fundamental forces. "r" represents the
         # distance from an object.
         self.force_formulas = {
@@ -254,6 +256,25 @@ class GridVisualizer(QOpenGLWidget):
             position.z() + displacement.z(),
         )
 
+    def advance_simulation(self, dt):
+        for obj in self.objects:
+            self.grid_translation.setX(self.grid_translation.x() - obj.velocity.x() * dt)
+            self.grid_translation.setY(self.grid_translation.y() - obj.velocity.y() * dt)
+            self.grid_translation.setZ(self.grid_translation.z() - obj.velocity.z() * dt)
+
+        if self.grid_translation.x() <= -1.0:
+            self.grid_translation.setX(self.grid_translation.x() + 1.0)
+        elif self.grid_translation.x() >= 1.0:
+            self.grid_translation.setX(self.grid_translation.x() - 1.0)
+        if self.grid_translation.y() <= -1.0:
+            self.grid_translation.setY(self.grid_translation.y() + 1.0)
+        elif self.grid_translation.y() >= 1.0:
+            self.grid_translation.setY(self.grid_translation.y() - 1.0)
+        if self.grid_translation.z() <= -1.0:
+            self.grid_translation.setZ(self.grid_translation.z() + 1.0)
+        elif self.grid_translation.z() >= 1.0:
+            self.grid_translation.setZ(self.grid_translation.z() - 1.0)
+
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
         for obj in self.objects:
@@ -310,6 +331,16 @@ class GridVisualizer(QOpenGLWidget):
         )
 
     def _draw_displaced_line(self, start, end):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -323,6 +354,16 @@ class GridVisualizer(QOpenGLWidget):
         glEnd()
 
     def _draw_force_line(self, start, end, force_name):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -364,17 +405,34 @@ class GridVisualizer(QOpenGLWidget):
             glBegin(GL_LINES)
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
-
-                    p1 = self._apply_force(QVector3D(0, i * step, j * step), force_name)
-                    p2 = self._apply_force(QVector3D(1, i * step, j * step), force_name)
+                    p1 = self._apply_force(
+                        QVector3D(0 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
+                    p2 = self._apply_force(
+                        QVector3D(1 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p1.x(), p1.y(), p1.z())
                     glVertex3f(p2.x(), p2.y(), p2.z())
-                    p3 = self._apply_force(QVector3D(i * step, 0, j * step), force_name)
-                    p4 = self._apply_force(QVector3D(i * step, 1, j * step), force_name)
+                    p3 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 0 + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
+                    p4 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 1 + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p3.x(), p3.y(), p3.z())
                     glVertex3f(p4.x(), p4.y(), p4.z())
-                    p5 = self._apply_force(QVector3D(i * step, j * step, 0), force_name)
-                    p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
+                    p5 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 0 + offset.z()),
+                        force_name,
+                    )
+                    p6 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 1 + offset.z()),
+                        force_name,
+                    )
                     glVertex3f(p5.x(), p5.y(), p5.z())
                     glVertex3f(p6.x(), p6.y(), p6.z())
             glEnd()
@@ -589,8 +647,12 @@ class MainWindow(QMainWindow):
         
         # Add a timer to trigger updates
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.visualizer.update)
+        self.timer.timeout.connect(self.update_simulation)
         self.timer.start(16)  # Update roughly 60 times per second
+
+    def update_simulation(self):
+        self.visualizer.advance_simulation(0.016)
+        self.visualizer.update()
 
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
