@@ -118,9 +118,7 @@ class GridVisualizer(QOpenGLWidget):
             oz = self.grid_translation.z()
 
             if self.dimension == 1:  # 1D: single line
-                self._draw_displaced_line(
-                    QVector3D(0, 0.5, 0.5), QVector3D(1, 0.5, 0.5)
-                )
+                self._draw_bounding_line()
                 for i in range(self.grid_density):
                     x = (i * step + ox) % 1.0
                     if i in (0, self.grid_density - 1):
@@ -285,7 +283,19 @@ class GridVisualizer(QOpenGLWidget):
             position.z() + displacement.z(),
         )
 
+    def _draw_bounding_line(self):
+        glBegin(GL_LINES)
+        glVertex3f(0, 0.5, 0.5)
+        glVertex3f(1, 0.5, 0.5)
+        glEnd()
 
+    def _draw_bounding_square(self):
+        glBegin(GL_LINE_LOOP)
+        glVertex3f(0, 0, 0.5)
+        glVertex3f(1, 0, 0.5)
+        glVertex3f(1, 1, 0.5)
+        glVertex3f(0, 1, 0.5)
+        glEnd()
 
     def _draw_bounding_box(self):
         glBegin(GL_LINES)
