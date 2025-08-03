@@ -29,7 +29,6 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QVector3D
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import numpy as np
 from space_object import SpaceObject
 import math
 from PyQt5.QtCore import pyqtSignal
@@ -223,7 +222,6 @@ class GridVisualizer(QOpenGLWidget):
                     "r": r,
                     "m": m,
                     "math": math,
-                    "np": np,
                     **self.constants,
                 },
             )
@@ -402,6 +400,8 @@ class GridVisualizer(QOpenGLWidget):
                     force_name,
                 )
         else:
+            offset = self.grid_translation
+
             glBegin(GL_LINES)
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
