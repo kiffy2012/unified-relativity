@@ -285,18 +285,7 @@ class GridVisualizer(QOpenGLWidget):
             position.z() + displacement.z(),
         )
 
-    def _draw_bounding_square(self):
-        glBegin(GL_LINES)
-        edges = [
-            (0, 0, 0.5, 1, 0, 0.5),
-            (1, 0, 0.5, 1, 1, 0.5),
-            (1, 1, 0.5, 0, 1, 0.5),
-            (0, 1, 0.5, 0, 0, 0.5),
-        ]
-        for e in edges:
-            glVertex3f(e[0], e[1], e[2])
-            glVertex3f(e[3], e[4], e[5])
-        glEnd()
+
 
     def _draw_bounding_box(self):
         glBegin(GL_LINES)
@@ -331,6 +320,28 @@ class GridVisualizer(QOpenGLWidget):
                 (self.grid_translation.z() - obj.velocity.z() * dt) % 1.0
             )
 
+
+    def advance_simulation(self, dt):
+        for obj in self.objects:
+            self.grid_translation.setX(self.grid_translation.x() - obj.velocity.x() * dt)
+            self.grid_translation.setY(self.grid_translation.y() - obj.velocity.y() * dt)
+            self.grid_translation.setZ(self.grid_translation.z() - obj.velocity.z() * dt)
+
+        if self.grid_translation.x() <= -1.0:
+            self.grid_translation.setX(self.grid_translation.x() + 1.0)
+        elif self.grid_translation.x() >= 1.0:
+            self.grid_translation.setX(self.grid_translation.x() - 1.0)
+        if self.grid_translation.y() <= -1.0:
+            self.grid_translation.setY(self.grid_translation.y() + 1.0)
+        elif self.grid_translation.y() >= 1.0:
+            self.grid_translation.setY(self.grid_translation.y() - 1.0)
+        if self.grid_translation.z() <= -1.0:
+            self.grid_translation.setZ(self.grid_translation.z() + 1.0)
+        elif self.grid_translation.z() >= 1.0:
+            self.grid_translation.setZ(self.grid_translation.z() - 1.0)
+
+
+
     def _apply_displacement(self, position):
         displacement = QVector3D(0, 0, 0)
         for obj in self.objects:
@@ -358,6 +369,16 @@ class GridVisualizer(QOpenGLWidget):
         )
 
     def _draw_displaced_line(self, start, end):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -371,6 +392,16 @@ class GridVisualizer(QOpenGLWidget):
         glEnd()
 
     def _draw_force_line(self, start, end, force_name):
+        start = QVector3D(
+            start.x() + self.grid_translation.x(),
+            start.y() + self.grid_translation.y(),
+            start.z() + self.grid_translation.z(),
+        )
+        end = QVector3D(
+            end.x() + self.grid_translation.x(),
+            end.y() + self.grid_translation.y(),
+            end.z() + self.grid_translation.z(),
+        )
         glBegin(GL_LINE_STRIP)
         for k in range(self.line_segments + 1):
             t = k / self.line_segments
@@ -419,42 +450,46 @@ class GridVisualizer(QOpenGLWidget):
                         force_name,
                     )
         else:
-            for iy in range(self.grid_density):
-                y = (iy * step + oy) % 1.0
-                for iz in range(self.grid_density):
-                    z = (iz * step + oz) % 1.0
-                    if iy in (0, self.grid_density - 1) and iz in (
-                        0,
-                        self.grid_density - 1,
-                    ):
-                        continue
-                    self._draw_force_line(
-                        QVector3D(0, y, z), QVector3D(1, y, z), force_name
+
+
+            offset = self.grid_translation
+
+            glBegin(GL_LINES)
+            for i in range(self.grid_density):
+                for j in range(self.grid_density):
+                    p1 = self._apply_force(
+                        QVector3D(0 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
                     )
-            for ix in range(self.grid_density):
-                x = (ix * step + ox) % 1.0
-                for iz in range(self.grid_density):
-                    z = (iz * step + oz) % 1.0
-                    if ix in (0, self.grid_density - 1) and iz in (
-                        0,
-                        self.grid_density - 1,
-                    ):
-                        continue
-                    self._draw_force_line(
-                        QVector3D(x, 0, z), QVector3D(x, 1, z), force_name
+                    p2 = self._apply_force(
+                        QVector3D(1 + offset.x(), i * step + offset.y(), j * step + offset.z()),
+                        force_name,
                     )
-            for ix in range(self.grid_density):
-                x = (ix * step + ox) % 1.0
-                for iy in range(self.grid_density):
-                    y = (iy * step + oy) % 1.0
-                    if ix in (0, self.grid_density - 1) and iy in (
-                        0,
-                        self.grid_density - 1,
-                    ):
-                        continue
-                    self._draw_force_line(
-                        QVector3D(x, y, 0), QVector3D(x, y, 1), force_name
+                    glVertex3f(p1.x(), p1.y(), p1.z())
+                    glVertex3f(p2.x(), p2.y(), p2.z())
+                    p3 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 0 + offset.y(), j * step + offset.z()),
+                        force_name,
                     )
+                    p4 = self._apply_force(
+                        QVector3D(i * step + offset.x(), 1 + offset.y(), j * step + offset.z()),
+                        force_name,
+                    )
+                    glVertex3f(p3.x(), p3.y(), p3.z())
+                    glVertex3f(p4.x(), p4.y(), p4.z())
+                    p5 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 0 + offset.z()),
+                        force_name,
+                    )
+                    p6 = self._apply_force(
+                        QVector3D(i * step + offset.x(), j * step + offset.y(), 1 + offset.z()),
+                        force_name,
+                    )
+                    glVertex3f(p5.x(), p5.y(), p5.z())
+                    glVertex3f(p6.x(), p6.y(), p6.z())
+            glEnd()
+
+
 
 
 
