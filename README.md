@@ -8,7 +8,6 @@ The code relies on several Python packages:
 
 - `PyQt5`
 - `PyOpenGL`
-- `numpy`
 
 You can install them using `pip`:
 
