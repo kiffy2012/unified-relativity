@@ -263,6 +263,7 @@ class GridVisualizer(QOpenGLWidget):
                 position.z() - obj.position.z(),
             )
 
+
             r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
             if r == 0:
                 continue
@@ -273,6 +274,35 @@ class GridVisualizer(QOpenGLWidget):
                 value = self._evaluate_formula(formula, r, obj.mass)
                 if value != 0 and scaling:
                     displacement -= r_unit * value * scaling
+        return QVector3D(
+            position.x() + displacement.x(),
+            position.y() + displacement.y(),
+            position.z() + displacement.z(),
+        )
+
+    def _apply_displacement(self, position):
+        displacement = QVector3D(0, 0, 0)
+        for obj in self.objects:
+            r_vec = QVector3D(
+                position.x() - obj.position.x(),
+                position.y() - obj.position.y(),
+                position.z() - obj.position.z(),
+            )
+
+
+            r = math.sqrt(r_vec.x() ** 2 + r_vec.y() ** 2 + r_vec.z() ** 2)
+            if r == 0:
+                continue
+            r_unit = QVector3D(r_vec.x() / r, r_vec.y() / r, r_vec.z() / r)
+
+
+            for formula in self.force_formulas.values():
+                value = self._evaluate_formula(formula, r, obj.mass)
+                if value != 0:
+                    # Prevent extreme displacements that collapse the grid
+                    scaled = (value / (1 + abs(value))) * 0.2
+                    displacement -= r_unit * scaled
+
         return QVector3D(
             position.x() + displacement.x(),
             position.y() + displacement.y(),
@@ -333,21 +363,21 @@ class GridVisualizer(QOpenGLWidget):
         else:
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
-                    self._draw_force_line(
-                        QVector3D(0, i * step, j * step),
-                        QVector3D(1, i * step, j * step),
-                        force_name,
-                    )
-                    self._draw_force_line(
-                        QVector3D(i * step, 0, j * step),
-                        QVector3D(i * step, 1, j * step),
-                        force_name,
-                    )
-                    self._draw_force_line(
-                        QVector3D(i * step, j * step, 0),
-                        QVector3D(i * step, j * step, 1),
-                        force_name,
-                    )
+
+                    p1 = self._apply_force(QVector3D(0, i * step, j * step), force_name)
+                    p2 = self._apply_force(QVector3D(1, i * step, j * step), force_name)
+                    glVertex3f(p1.x(), p1.y(), p1.z())
+                    glVertex3f(p2.x(), p2.y(), p2.z())
+                    p3 = self._apply_force(QVector3D(i * step, 0, j * step), force_name)
+                    p4 = self._apply_force(QVector3D(i * step, 1, j * step), force_name)
+                    glVertex3f(p3.x(), p3.y(), p3.z())
+                    glVertex3f(p4.x(), p4.y(), p4.z())
+                    p5 = self._apply_force(QVector3D(i * step, j * step, 0), force_name)
+                    p6 = self._apply_force(QVector3D(i * step, j * step, 1), force_name)
+                    glVertex3f(p5.x(), p5.y(), p5.z())
+                    glVertex3f(p6.x(), p6.y(), p6.z())
+
+        glEnd()
 
 
 
