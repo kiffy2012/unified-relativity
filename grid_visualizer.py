@@ -401,6 +401,7 @@ class GridVisualizer(QOpenGLWidget):
                 )
         else:
             offset = self.grid_translation
+
             glBegin(GL_LINES)
             for i in range(self.grid_density):
                 for j in range(self.grid_density):
