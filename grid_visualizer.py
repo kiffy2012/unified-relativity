@@ -836,9 +836,6 @@ class MainWindow(QMainWindow):
         self.visualizer = GridVisualizer(self.space_time_grid)
         visualizer_layout = QVBoxLayout()
         visualizer_layout.addWidget(self.visualizer)
-        self.toggle_velocity_button = QPushButton("Stop")
-        self.toggle_velocity_button.clicked.connect(self.toggle_velocity)
-        visualizer_layout.addWidget(self.toggle_velocity_button, alignment=Qt.AlignCenter)
         visualizer_panel = QWidget()
         visualizer_panel.setLayout(visualizer_layout)
         main_layout.addWidget(visualizer_panel, 3)
@@ -884,6 +881,11 @@ class MainWindow(QMainWindow):
         edit_object_button = QPushButton("Edit Selected Object")
         edit_object_button.clicked.connect(self.edit_selected_object)
         right_layout.addWidget(edit_object_button)
+
+        right_layout.addStretch()
+        self.toggle_velocity_button = QPushButton("Stop")
+        self.toggle_velocity_button.clicked.connect(self.toggle_velocity)
+        right_layout.addWidget(self.toggle_velocity_button)
 
         right_panel.setLayout(right_layout)
         main_layout.addWidget(right_panel, 1)
