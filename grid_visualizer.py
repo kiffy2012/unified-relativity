@@ -721,6 +721,14 @@ class MainWindow(QMainWindow):
         self.visualizer.advance_simulation(0.016)
         self.visualizer.update()
 
+    def toggle_velocity(self):
+        if self.timer.isActive():
+            self.timer.stop()
+            self.toggle_velocity_button.setText("Start")
+        else:
+            self.timer.start(16)
+            self.toggle_velocity_button.setText("Stop")
+
     def setup_object_lists(self):
         scales = ["Quantum", "Subatomic", "Atomic", "Molecular", "Macroscopic", "Astronomical", "Cosmological"]
         for scale in scales:
@@ -826,7 +834,14 @@ class MainWindow(QMainWindow):
 
         # Left panel (visualization)
         self.visualizer = GridVisualizer(self.space_time_grid)
-        main_layout.addWidget(self.visualizer, 3)
+        visualizer_layout = QVBoxLayout()
+        visualizer_layout.addWidget(self.visualizer)
+        self.toggle_velocity_button = QPushButton("Stop")
+        self.toggle_velocity_button.clicked.connect(self.toggle_velocity)
+        visualizer_layout.addWidget(self.toggle_velocity_button, alignment=Qt.AlignCenter)
+        visualizer_panel = QWidget()
+        visualizer_panel.setLayout(visualizer_layout)
+        main_layout.addWidget(visualizer_panel, 3)
 
         # Right panel (controls and object adding)
         right_panel = QWidget()
