@@ -75,8 +75,16 @@ class GridVisualizer(QOpenGLWidget):
             "weak": (0.0, 1.0, 0.0),
         }
 
-        # Number of segments used to draw each grid line so they can bend
+        # Number of segments used to draw each grid line so they can bend. This
+        # value will scale with grid density to keep curves smooth when the
+        # grid is highly subdivided.
         self.line_segments = 20
+        self._update_line_segments()
+
+
+    def _update_line_segments(self):
+        """Scale line segments with density to keep grid curves smooth."""
+        self.line_segments = max(20, int(self.grid_density * 2))
 
 
     def initializeGL(self):
@@ -222,6 +230,7 @@ class GridVisualizer(QOpenGLWidget):
 
     def set_grid_density(self, density):
         self.grid_density = max(0, min(50, density))  # Allow 0 to hide grid
+        self._update_line_segments()
         self.update()
 
     def set_dimension(self, dim):
