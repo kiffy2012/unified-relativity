@@ -257,6 +257,13 @@ class GridVisualizer(QOpenGLWidget):
         except Exception:
             return 0
 
+    def _clamp_to_box(self, position):
+        """Ensure a position stays within the unit bounding box."""
+        return QVector3D(
+            max(0.0, min(1.0, position.x())),
+            max(0.0, min(1.0, position.y())),
+            max(0.0, min(1.0, position.z())),
+        )
 
     def _apply_force(self, position, force_name):
         displacement = QVector3D(0, 0, 0)
@@ -277,10 +284,12 @@ class GridVisualizer(QOpenGLWidget):
             value = self._evaluate_formula(formula, r, obj.mass)
             if value != 0 and scaling:
                 displacement -= r_unit * value * scaling
-        return QVector3D(
-            position.x() + displacement.x(),
-            position.y() + displacement.y(),
-            position.z() + displacement.z(),
+        return self._clamp_to_box(
+            QVector3D(
+                position.x() + displacement.x(),
+                position.y() + displacement.y(),
+                position.z() + displacement.z(),
+            )
         )
 
     def _draw_bounding_line(self):
@@ -358,10 +367,12 @@ class GridVisualizer(QOpenGLWidget):
                 value = self._evaluate_formula(formula, r, obj.mass)
                 if value != 0 and scaling:
                     displacement -= r_unit * value * scaling
-        return QVector3D(
-            position.x() + displacement.x(),
-            position.y() + displacement.y(),
-            position.z() + displacement.z(),
+        return self._clamp_to_box(
+            QVector3D(
+                position.x() + displacement.x(),
+                position.y() + displacement.y(),
+                position.z() + displacement.z(),
+            )
         )
 
     def _draw_displaced_line(self, start, end):
