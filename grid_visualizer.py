@@ -84,10 +84,9 @@ class GridVisualizer(QOpenGLWidget):
 
     def _update_line_segments(self):
         """Scale line segments with density to keep grid curves smooth."""
-        # Ensure a high subdivision count so lines remain curved rather than
-        # forming angular "diamond" patterns at high densities. We aim for
-        # roughly ten segments per grid cell.
-        self.line_segments = max(20, (self.grid_density - 1) * 10)
+
+        self.line_segments = max(20, int(self.grid_density * 2))
+
 
 
     def initializeGL(self):
